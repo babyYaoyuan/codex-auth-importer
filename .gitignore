@@ -1,0 +1,7 @@
+dist/
+.gocache/
+.gomodcache/
+*.h
+*.so
+*.dylib
+*.dll
