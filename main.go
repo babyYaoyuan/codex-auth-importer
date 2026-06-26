@@ -243,8 +243,8 @@ func pluginRegistration() registration {
 		Metadata: pluginapi.Metadata{
 			Name:             pluginID,
 			Version:          version,
-			Author:           "router-for-me",
-			GitHubRepository: "https://github.com/router-for-me/CLIProxyAPI",
+			Author:           "babyYaoyuan",
+			GitHubRepository: "https://github.com/babyYaoyuan/codex-auth-importer",
 			Logo:             defaultPluginLogo,
 			ConfigFields:     []pluginapi.ConfigField{},
 		},

@@ -1,4 +1,4 @@
-module github.com/router-for-me/codex-auth-importer
+module github.com/babyYaoyuan/codex-auth-importer
 
 go 1.26.0
 
