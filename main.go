@@ -61,6 +61,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unsafe"
 
 	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
@@ -68,15 +69,16 @@ import (
 )
 
 const (
-	pluginID          = "codex-auth-importer"
-	resourcePath      = "/import"
-	managementPath    = "/plugins/codex-auth-importer/import"
-	contentTypeHTML   = "text/html; charset=utf-8"
-	contentTypeJSON   = "application/json; charset=utf-8"
-	defaultPluginLogo = "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/main/docs/logo.png"
+	pluginID                = "codex-auth-importer"
+	resourcePath            = "/import"
+	managementPath          = "/plugins/codex-auth-importer/import"
+	authFilesManagementPath = "/plugins/codex-auth-importer/auth-files"
+	contentTypeHTML         = "text/html; charset=utf-8"
+	contentTypeJSON         = "application/json; charset=utf-8"
+	defaultPluginLogo       = "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/main/docs/logo.png"
 )
 
-var version = "0.1.0"
+var version = "0.2.4"
 
 type envelope struct {
 	OK     bool            `json:"ok"`
@@ -146,6 +148,15 @@ type importResponse struct {
 	Version      string `json:"version"`
 }
 
+type authListResponse struct {
+	Files []pluginapi.HostAuthFileEntry `json:"files"`
+}
+
+type codexAuthFilesResponse struct {
+	Files   []codexAuthFileEntry `json:"files"`
+	Version string               `json:"version"`
+}
+
 func main() {}
 
 //export cliproxy_plugin_init
@@ -201,11 +212,18 @@ func handleMethod(method string, request []byte) ([]byte, error) {
 		return okEnvelope(pluginRegistration())
 	case pluginabi.MethodManagementRegister:
 		return okEnvelope(managementRegistration{
-			Routes: []managementRoute{{
-				Method:      http.MethodPost,
-				Path:        managementPath,
-				Description: "Imports Codex CLI auth.json and saves a CLIProxyAPI Codex auth file.",
-			}},
+			Routes: []managementRoute{
+				{
+					Method:      http.MethodPost,
+					Path:        managementPath,
+					Description: "Imports Codex CLI auth.json and saves a CLIProxyAPI Codex auth file.",
+				},
+				{
+					Method:      http.MethodPost,
+					Path:        authFilesManagementPath,
+					Description: "Lists existing CLIProxyAPI Codex auth files for replacement.",
+				},
+			},
 			Resources: []managementResource{{
 				Path:        resourcePath,
 				Menu:        "导入 Codex auth.json",
@@ -243,10 +261,55 @@ func handleManagement(raw []byte) ([]byte, error) {
 			return nil, fmt.Errorf("decode management request: %w", errUnmarshal)
 		}
 	}
-	if strings.EqualFold(req.Method, http.MethodPost) {
+	if strings.EqualFold(req.Method, http.MethodPost) && strings.HasSuffix(req.Path, authFilesManagementPath) {
+		return handleCodexAuthFiles()
+	}
+	if strings.EqualFold(req.Method, http.MethodPost) && strings.HasSuffix(req.Path, managementPath) {
 		return handleImport(req)
 	}
 	return okEnvelope(htmlResponse(http.StatusOK, renderImportPage()))
+}
+
+func handleCodexAuthFiles() ([]byte, error) {
+	files, errList := callHostAuthList()
+	if errList != nil {
+		return okEnvelope(jsonResponse(http.StatusBadGateway, map[string]any{
+			"error": errList.Error(),
+		}))
+	}
+	rawByAuthIndex := make(map[string]json.RawMessage)
+	quotaByAuthIndex := make(map[string]codexQuotaProbeResult)
+	for i := range files {
+		if !isCodexAuthEntry(files[i]) {
+			continue
+		}
+		authIndex := strings.TrimSpace(files[i].AuthIndex)
+		if authIndex == "" {
+			quotaByAuthIndex[files[i].AuthIndex] = codexQuotaProbeResult{
+				Checked: true,
+				Valid:   false,
+				Message: "缺少 auth_index，无法查询额度",
+			}
+			continue
+		}
+		authFile, errGet := callHostAuthGet(authIndex)
+		if errGet != nil {
+			message := authGetErrorMessage(files[i], errGet)
+			files[i].StatusMessage = message
+			quotaByAuthIndex[authIndex] = codexQuotaProbeResult{
+				Checked: true,
+				Valid:   false,
+				Message: message,
+			}
+			continue
+		}
+		rawByAuthIndex[authIndex] = authFile.JSON
+		quotaByAuthIndex[authIndex] = probeCodexQuota(authFile.JSON)
+	}
+	return okEnvelope(jsonResponse(http.StatusOK, codexAuthFilesResponse{
+		Files:   codexAuthFilesFromHostWithQuotaAt(files, rawByAuthIndex, quotaByAuthIndex, time.Now()),
+		Version: version,
+	}))
 }
 
 func handleImport(req managementRequest) ([]byte, error) {
@@ -293,6 +356,44 @@ func callHostAuthSave(name string, rawJSON json.RawMessage) (pluginapi.HostAuthS
 	var resp pluginapi.HostAuthSaveResponse
 	if errUnmarshal := json.Unmarshal(result, &resp); errUnmarshal != nil {
 		return pluginapi.HostAuthSaveResponse{}, fmt.Errorf("decode host.auth.save result: %w", errUnmarshal)
+	}
+	return resp, nil
+}
+
+func callHostAuthList() ([]pluginapi.HostAuthFileEntry, error) {
+	result, errCall := callHost(pluginabi.MethodHostAuthList, map[string]any{})
+	if errCall != nil {
+		return nil, errCall
+	}
+	var resp authListResponse
+	if errUnmarshal := json.Unmarshal(result, &resp); errUnmarshal != nil {
+		return nil, fmt.Errorf("decode host.auth.list result: %w", errUnmarshal)
+	}
+	return resp.Files, nil
+}
+
+func callHostAuthGet(authIndex string) (pluginapi.HostAuthGetResponse, error) {
+	result, errCall := callHost(pluginabi.MethodHostAuthGet, pluginapi.HostAuthGetRequest{
+		AuthIndex: authIndex,
+	})
+	if errCall != nil {
+		return pluginapi.HostAuthGetResponse{}, errCall
+	}
+	var resp pluginapi.HostAuthGetResponse
+	if errUnmarshal := json.Unmarshal(result, &resp); errUnmarshal != nil {
+		return pluginapi.HostAuthGetResponse{}, fmt.Errorf("decode host.auth.get result: %w", errUnmarshal)
+	}
+	return resp, nil
+}
+
+func callHostHTTPDo(req pluginapi.HTTPRequest) (pluginapi.HTTPResponse, error) {
+	result, errCall := callHost(pluginabi.MethodHostHTTPDo, req)
+	if errCall != nil {
+		return pluginapi.HTTPResponse{}, errCall
+	}
+	var resp pluginapi.HTTPResponse
+	if errUnmarshal := json.Unmarshal(result, &resp); errUnmarshal != nil {
+		return pluginapi.HTTPResponse{}, fmt.Errorf("decode host.http.do result: %w", errUnmarshal)
 	}
 	return resp, nil
 }
