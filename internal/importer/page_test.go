@@ -1,4 +1,4 @@
-package main
+package importer
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestImportPageDoesNotRenderManagementKeyInput(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, forbidden := range []string{
 		`id="key"`,
 		"codexAuthImporter.managementKey",
@@ -20,7 +20,7 @@ func TestImportPageDoesNotRenderManagementKeyInput(t *testing.T) {
 }
 
 func TestImportPageProvidesSubscriptionStatusAndSelection(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, required := range []string{
 		"订阅状态",
 		"刷新状态",
@@ -35,7 +35,7 @@ func TestImportPageProvidesSubscriptionStatusAndSelection(t *testing.T) {
 }
 
 func TestImportPageUsesWideTableLayout(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, required := range []string{
 		"max-width:1680px",
 		`<col class="col-subscription">`,
@@ -53,7 +53,7 @@ func TestImportPageUsesWideTableLayout(t *testing.T) {
 }
 
 func TestImportPageUsesBlockingBusyOverlay(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, required := range []string{
 		`id="busyOverlay"`,
 		"正在刷新订阅状态",
@@ -68,7 +68,7 @@ func TestImportPageUsesBlockingBusyOverlay(t *testing.T) {
 }
 
 func TestImportPageSelectionOnlyUsesSelectButton(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	if !strings.Contains(page, `event.target.closest('.select-file')`) {
 		t.Fatalf("renderImportPage() missing select button click handler")
 	}
@@ -78,7 +78,7 @@ func TestImportPageSelectionOnlyUsesSelectButton(t *testing.T) {
 }
 
 func TestImportPageSupportsCustomSubscriptionName(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, required := range []string{
 		"订阅名称",
 		`id="customName"`,
@@ -97,7 +97,7 @@ func TestImportPageSupportsCustomSubscriptionName(t *testing.T) {
 }
 
 func TestImportPageFormatsDateTimeWithSeconds(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, required := range []string{
 		"function padDatePart(value)",
 		"return y + '-' + m + '-' + d + ' ' + hh + ':' + mm + ':' + ss;",
@@ -111,7 +111,7 @@ func TestImportPageFormatsDateTimeWithSeconds(t *testing.T) {
 }
 
 func TestImportPageUsesManagementActionEndpoints(t *testing.T) {
-	page := string(renderImportPage())
+	page := string(renderImportPage(""))
 	for _, required := range []string{
 		"apiURL('auth-files')",
 		"apiURL('import')",
@@ -125,13 +125,7 @@ func TestImportPageUsesManagementActionEndpoints(t *testing.T) {
 }
 
 func TestImportPageInjectsManagementKeyHeader(t *testing.T) {
-	oldKey := managementKey
-	managementKey = "test-management-key"
-	t.Cleanup(func() {
-		managementKey = oldKey
-	})
-
-	page := string(renderImportPage())
+	page := string(renderImportPage("test-management-key"))
 	for _, required := range []string{
 		`const MANAGEMENT_KEY = "test-management-key";`,
 		`headers['X-Management-Key'] = MANAGEMENT_KEY;`,
