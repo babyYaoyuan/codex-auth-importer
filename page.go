@@ -1,103 +1,180 @@
 package main
 
+import (
+	"strconv"
+	"strings"
+)
+
 func renderImportPage() []byte {
-	return []byte(`<!doctype html>
+	page := `<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>导入 Codex auth.json</title>
+  <title>Codex 订阅导入</title>
   <style>
-    :root{color-scheme:light dark;--bg:#f6f7f9;--panel:#fff;--text:#17202a;--muted:#5c6670;--line:#d9dee5;--accent:#2563eb;--accent-strong:#174bb8;--ok:#0f7b45;--err:#b42318}
-    @media (prefers-color-scheme:dark){:root{--bg:#111418;--panel:#181d23;--text:#edf1f7;--muted:#aab3bf;--line:#303844;--accent:#6aa6ff;--accent-strong:#8bbcff;--ok:#5bd38e;--err:#ff7d73}}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    main{max-width:760px;margin:0 auto;padding:36px 20px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:24px;box-shadow:0 10px 30px rgba(15,23,42,.06)}
-    h1{font-size:22px;line-height:1.2;margin:0 0 18px}.grid{display:grid;gap:16px}label{display:grid;gap:7px;font-weight:600}small{color:var(--muted);font-weight:400}
-    input{width:100%;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--text);padding:10px 11px;font:inherit}
-    input[type=file]{padding:9px;background:rgba(127,127,127,.04)}button{border:0;border-radius:6px;background:var(--accent);color:#fff;padding:11px 14px;font:600 14px/1.2 inherit;cursor:pointer}
-    .hint{color:var(--muted);font-size:12px;font-weight:400}
-    button:hover{background:var(--accent-strong)}button:disabled{opacity:.55;cursor:not-allowed}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
-    button.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}button.secondary:hover{border-color:var(--accent);color:var(--accent);background:transparent}
-    .files{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}.files-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.files-title{font-weight:700}.files-list{display:grid;gap:8px}
-    .file-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:11px;background:rgba(127,127,127,.04)}
-    .file-main{min-width:0}.file-name{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-meta{color:var(--muted);font-size:12px;margin-top:3px}.status{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:12px;border:1px solid var(--line);margin-right:6px}.status.expired{color:var(--err);border-color:rgba(180,35,24,.35)}.status.valid{color:var(--ok);border-color:rgba(15,123,69,.35)}
-    pre{margin:18px 0 0;white-space:pre-wrap;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:14px;background:rgba(127,127,127,.07);min-height:56px}
-    .ok{color:var(--ok)}.err{color:var(--err)}
+    :root{color-scheme:light dark;--bg:#f5f7fb;--panel:#fff;--text:#17202a;--muted:#607080;--line:#d8e0ea;--soft:#eef3f8;--accent:#1769aa;--accent-strong:#0f4f82;--ok:#147a4a;--warn:#a75b00;--err:#b42318}
+    @media (prefers-color-scheme:dark){:root{--bg:#101419;--panel:#171d24;--text:#edf2f7;--muted:#a7b3c0;--line:#303a46;--soft:#202833;--accent:#69aee8;--accent-strong:#91c6f0;--ok:#62d79c;--warn:#f1b45f;--err:#ff7d73}}
+    *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body.busy{overflow:hidden}
+    button,input{font:inherit}button{border:0;border-radius:6px;background:var(--accent);color:#fff;padding:10px 13px;font-weight:650;cursor:pointer}button:hover{background:var(--accent-strong)}button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button:disabled{opacity:.5;cursor:not-allowed}
+    main{width:100%;max-width:1680px;margin:0 auto;padding:24px 28px 36px}.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+    h1{font-size:24px;line-height:1.2;margin:0}.subtitle{color:var(--muted);margin-top:6px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:14px;align-items:start}
+    .panel{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px}.status-panel{min-height:680px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-bottom:1px solid var(--line)}
+    .panel-title{font-size:16px;font-weight:750}.head-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}.secondary:hover{background:transparent;color:var(--accent);border-color:var(--accent)}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}.stat{background:var(--panel);padding:14px 18px}.stat-value{font-size:22px;font-weight:760;line-height:1}.stat-label{color:var(--muted);font-size:12px;margin-top:5px}
+    .table-wrap{overflow:auto;max-width:100%}.table{width:100%;border-collapse:collapse;min-width:1160px;table-layout:fixed}.col-subscription{width:31%}.col-status{width:86px}.col-account{width:23%}.col-expiry{width:168px}.col-refresh{width:136px}.col-action{width:104px}.table th,.table td{text-align:left;padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:middle;overflow:hidden;text-overflow:ellipsis}.table th{position:sticky;top:0;z-index:2;font-size:12px;color:var(--muted);font-weight:700;background:var(--panel);white-space:nowrap}.table th:last-child,.table td:last-child{text-align:center}.select-file{min-width:82px;padding:8px 10px}
+    .row:hover{background:rgba(23,105,170,.07)}.row.selected{background:rgba(23,105,170,.12)}.name{font-weight:720;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.meta{color:var(--muted);font-size:12px;line-height:1.35;margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.cell-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-cell{font-size:13px}.date-cell{font-variant-numeric:tabular-nums}
+    .badge{display:inline-flex;align-items:center;justify-content:center;min-width:62px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:12px;font-weight:720;white-space:nowrap}.badge.ok{color:var(--ok);border-color:rgba(20,122,74,.35);background:rgba(20,122,74,.08)}.badge.err{color:var(--err);border-color:rgba(180,35,24,.35);background:rgba(180,35,24,.08)}.badge.warn{color:var(--warn);border-color:rgba(167,91,0,.35);background:rgba(167,91,0,.08)}
+    .empty{display:grid;place-items:center;min-height:320px;padding:28px;color:var(--muted);text-align:center}.action-panel{position:sticky;top:18px;padding:16px}.action-panel .panel-title{margin-bottom:14px}.action-block{display:grid;gap:12px;min-width:0}.action-block>*{min-width:0}.target{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:12px}.target-label,.field-label{font-size:12px;color:var(--muted);margin-bottom:4px}.target-name{font-weight:720;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .text-field input{width:100%;height:40px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--text);padding:9px 11px;outline:0}.text-field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(23,105,170,.12)}.text-field input:disabled{opacity:.6;cursor:not-allowed}.text-field input:read-only:not(:disabled){background:var(--soft)}.text-field input::placeholder{color:var(--muted)}
+    .file-box{display:grid;gap:10px;border:1px dashed var(--line);border-radius:8px;padding:14px;background:rgba(127,127,127,.035)}.file-name{min-height:20px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.button-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.button-row button{min-height:42px}
+    .result{margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:12px;min-height:72px;max-height:180px;white-space:pre-wrap;overflow:auto;background:rgba(127,127,127,.06);color:var(--muted);font-size:12px;line-height:1.45}.result.ok{color:var(--ok)}.result.err{color:var(--err)}.muted{color:var(--muted)}
+    .busy-overlay{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(12,18,26,.54);backdrop-filter:blur(2px)}.busy-card{display:grid;justify-items:center;gap:14px;min-width:240px;border:1px solid rgba(255,255,255,.24);border-radius:8px;background:rgba(255,255,255,.94);color:#17202a;padding:24px 28px;box-shadow:0 20px 60px rgba(12,18,26,.24)}.spinner{width:34px;height:34px;border:3px solid rgba(23,105,170,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}.busy-title{font-size:15px;font-weight:760}.busy-note{font-size:12px;color:#607080}@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-color-scheme:dark){.busy-card{background:rgba(23,29,36,.94);color:#edf2f7}.busy-note{color:#a7b3c0}}
+    @media (max-width:1180px){main{padding:20px 14px 28px}.topbar{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}.action-panel{position:static}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.status-panel{min-height:auto}.table{min-width:1040px}}
   </style>
 </head>
 <body>
 <main>
-  <section class="panel">
-    <h1>导入 Codex auth.json</h1>
-    <div class="grid">
-      <label>Codex auth.json
-        <input id="file" type="file" accept="application/json,.json">
-        <span class="hint">macOS 选择文件时按 ⌘⇧G，输入 ~/.codex/，然后选择 auth.json。</span>
-      </label>
-      <label>保存文件名 <small>可选；留空会自动生成 codex-*.json</small>
-        <input id="name" type="text" placeholder="codex-my-account.json" autocomplete="off">
-      </label>
-      <label>管理密钥 <small>用于调用 CLIProxyAPI 管理接口</small>
-        <input id="key" type="password" autocomplete="current-password">
-      </label>
-      <div class="actions">
-        <button id="submit" type="button">导入 Codex auth.json</button>
-      </div>
+  <div class="topbar">
+    <div>
+      <h1>Codex 订阅导入</h1>
+      <div class="subtitle">选择一个订阅替换，或直接导入新的 Codex auth 文件。</div>
     </div>
-    <div class="files">
-      <div class="files-head">
-        <div class="files-title">已有 Codex 认证文件</div>
-        <button id="refreshFiles" class="secondary" type="button">刷新已有文件</button>
+  </div>
+  <div class="layout">
+    <section class="panel status-panel">
+      <div class="panel-head">
+        <div class="panel-title">订阅状态</div>
+        <div class="head-actions">
+          <div id="lastUpdated" class="muted">准备刷新</div>
+          <button id="refresh" class="secondary" type="button">刷新状态</button>
+        </div>
       </div>
-      <div id="filesList" class="files-list"></div>
-    </div>
-    <pre id="result">等待选择文件</pre>
-  </section>
+      <div class="stats">
+        <div class="stat"><div id="totalCount" class="stat-value">0</div><div class="stat-label">全部</div></div>
+        <div class="stat"><div id="validCount" class="stat-value">0</div><div class="stat-label">有效</div></div>
+        <div class="stat"><div id="invalidCount" class="stat-value">0</div><div class="stat-label">不可用</div></div>
+        <div class="stat"><div id="checkedCount" class="stat-value">0</div><div class="stat-label">已校验</div></div>
+      </div>
+      <div id="tableWrap" class="table-wrap">
+        <table class="table">
+          <colgroup>
+            <col class="col-subscription">
+            <col class="col-status">
+            <col class="col-account">
+            <col class="col-expiry">
+            <col class="col-refresh">
+            <col class="col-action">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>订阅</th>
+              <th>状态</th>
+              <th>账号</th>
+              <th>到期</th>
+              <th>最近刷新</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="filesBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty" hidden>没有读取到 Codex 订阅</div>
+    </section>
+    <aside class="panel action-panel">
+      <div class="panel-title">导入 auth.json</div>
+      <div class="action-block">
+        <div class="target">
+          <div class="target-label">替换目标</div>
+          <div id="targetName" class="target-name">未选择，将导入为新订阅</div>
+        </div>
+        <label class="text-field">
+          <div class="field-label">订阅名称</div>
+          <input id="customName" type="text" autocomplete="off" placeholder="请先选择 auth.json" disabled>
+        </label>
+        <div class="file-box">
+          <input id="file" type="file" accept="application/json,.json" hidden>
+          <button id="chooseFile" class="secondary" type="button">选择本地 auth.json</button>
+          <div id="fileName" class="file-name">未选择文件</div>
+        </div>
+        <div class="button-row">
+          <button id="replaceSelected" type="button" disabled>替换所选</button>
+          <button id="importNew" class="secondary" type="button" disabled>导入新的</button>
+        </div>
+        <button id="clearTarget" class="secondary" type="button" disabled>取消替换目标</button>
+      </div>
+      <pre id="result" class="result" aria-live="polite">正在读取订阅状态...</pre>
+    </aside>
+  </div>
 </main>
+<div id="busyOverlay" class="busy-overlay" hidden>
+  <div class="busy-card" role="status" aria-live="assertive">
+    <div class="spinner"></div>
+    <div id="busyText" class="busy-title">正在刷新订阅状态</div>
+    <div class="busy-note">请等待当前操作完成</div>
+  </div>
+</div>
 <script>
+const appMain = document.querySelector('main');
 const fileInput = document.getElementById('file');
-const nameInput = document.getElementById('name');
-const keyInput = document.getElementById('key');
-const button = document.getElementById('submit');
-const refreshFilesButton = document.getElementById('refreshFiles');
-const filesList = document.getElementById('filesList');
+const customNameInput = document.getElementById('customName');
+const chooseFileButton = document.getElementById('chooseFile');
+const refreshButton = document.getElementById('refresh');
+const replaceButton = document.getElementById('replaceSelected');
+const importNewButton = document.getElementById('importNew');
+const clearTargetButton = document.getElementById('clearTarget');
+const filesBody = document.getElementById('filesBody');
+const tableWrap = document.getElementById('tableWrap');
+const emptyState = document.getElementById('emptyState');
+const targetName = document.getElementById('targetName');
+const fileName = document.getElementById('fileName');
 const result = document.getElementById('result');
-const managementKeyNames = [
-  'codexAuthImporter.managementKey',
-  'cliproxy.managementKey',
-  'cliproxy.management_key',
-  'cliproxy.remoteManagementKey',
-  'cpa.managementKey',
-  'managementKey',
-  'management-key',
-  'remoteManagementKey'
-];
-const savedKey = sessionStorage.getItem('codexAuthImporter.managementKey') || findStoredManagementKey();
-if (savedKey) keyInput.value = savedKey;
+const lastUpdated = document.getElementById('lastUpdated');
+const totalCount = document.getElementById('totalCount');
+const validCount = document.getElementById('validCount');
+const invalidCount = document.getElementById('invalidCount');
+const checkedCount = document.getElementById('checkedCount');
+const busyOverlay = document.getElementById('busyOverlay');
+const busyText = document.getElementById('busyText');
+const MANAGEMENT_KEY = __MANAGEMENT_KEY__;
+let selectedName = '';
+let currentFiles = [];
+
+function apiURL(action) {
+  if (action === 'auth-files') {
+    return '/v0/management/plugins/codex-auth-importer/auth-files';
+  }
+  return '/v0/management/plugins/codex-auth-importer/import';
+}
+
+function requestHeaders() {
+  const headers = {'Content-Type': 'application/json'};
+  if (MANAGEMENT_KEY) {
+    headers['X-Management-Key'] = MANAGEMENT_KEY;
+  }
+  return headers;
+}
+
+function ensureManagementKey() {
+  if (MANAGEMENT_KEY) return true;
+  lastUpdated.textContent = '缺少管理密钥';
+  show('插件未内置管理密钥，请重新打包或设置 CODEX_AUTH_IMPORTER_MANAGEMENT_KEY 后重启服务。', 'err');
+  return false;
+}
 
 function show(text, className) {
-  result.className = className || '';
+  result.className = 'result' + (className ? ' ' + className : '');
   result.textContent = text;
 }
 
-function findStoredManagementKey() {
-  for (const store of [localStorage, sessionStorage]) {
-    for (const name of managementKeyNames) {
-      try {
-        const value = store.getItem(name);
-        if (value && value.trim()) return value.trim();
-      } catch (_) {}
-    }
+function setBusy(active, text) {
+  busyOverlay.hidden = !active;
+  document.body.classList.toggle('busy', active);
+  if (appMain) {
+    appMain.toggleAttribute('inert', active);
+    appMain.setAttribute('aria-busy', active ? 'true' : 'false');
   }
-  return '';
-}
-
-function buildHeaders() {
-  const headers = {'Content-Type': 'application/json'};
-  const managementKey = keyInput.value.trim() || findStoredManagementKey();
-  if (managementKey) sessionStorage.setItem('codexAuthImporter.managementKey', managementKey);
-  if (managementKey) headers['X-Management-Key'] = managementKey;
-  return headers;
+  if (active && text) busyText.textContent = text;
 }
 
 function escapeHTML(value) {
@@ -110,107 +187,226 @@ function escapeHTML(value) {
   }[ch]));
 }
 
-function renderCodexFiles(files) {
-  if (!Array.isArray(files) || files.length === 0) {
-    filesList.innerHTML = '<div class="file-meta">没有读取到 Codex 认证文件</div>';
+function formatStatus(file) {
+  if (file.quota_checked) {
+    return file.valid ? ['有效', 'ok'] : ['不可用', 'err'];
+  }
+  return file.expired ? ['已过期', 'err'] : ['未过期', 'warn'];
+}
+
+function padDatePart(value) {
+  return String(value).padStart(2, '0');
+}
+
+function formatDateTime(value) {
+  const text = String(value || '').trim();
+  if (!text) return '-';
+  const normalized = text.replace('T', ' ').replace(/\.\d+Z?$/, '').replace(/Z$/, '');
+  const match = normalized.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/);
+  if (match) {
+    const y = match[1];
+    const m = padDatePart(match[2]);
+    const d = padDatePart(match[3]);
+    const hh = padDatePart(match[4] || '0');
+    const mm = padDatePart(match[5] || '0');
+    const ss = padDatePart(match[6] || '0');
+    return y + '-' + m + '-' + d + ' ' + hh + ':' + mm + ':' + ss;
+  }
+  const date = new Date(text);
+  if (!Number.isNaN(date.getTime())) {
+    return date.getFullYear() + '-' +
+      padDatePart(date.getMonth() + 1) + '-' +
+      padDatePart(date.getDate()) + ' ' +
+      padDatePart(date.getHours()) + ':' +
+      padDatePart(date.getMinutes()) + ':' +
+      padDatePart(date.getSeconds());
+  }
+  return normalized;
+}
+
+function updateStats(files) {
+  const total = files.length;
+  const valid = files.filter(file => file.valid).length;
+  const checked = files.filter(file => file.quota_checked).length;
+  totalCount.textContent = total;
+  validCount.textContent = valid;
+  invalidCount.textContent = total - valid;
+  checkedCount.textContent = checked;
+}
+
+function setTarget(name) {
+  const previousName = selectedName;
+  selectedName = name || '';
+  if (selectedName) {
+    customNameInput.value = selectedName;
+  } else if (customNameInput.value.trim() === previousName) {
+    customNameInput.value = '';
+  }
+  targetName.textContent = selectedName || '未选择，将导入为新订阅';
+  clearTargetButton.disabled = !selectedName;
+  updateButtons();
+  renderFiles(currentFiles);
+}
+
+function currentSubscriptionName() {
+  return customNameInput.value.trim();
+}
+
+function updateButtons() {
+  const hasFile = fileInput.files && fileInput.files.length > 0;
+  const hasName = currentSubscriptionName() !== '';
+  customNameInput.disabled = !hasFile;
+  customNameInput.placeholder = hasFile ? '例如 张三 @ Plus' : '请先选择 auth.json';
+  replaceButton.disabled = !hasFile || !hasName || !selectedName;
+  importNewButton.disabled = !hasFile || !hasName || Boolean(selectedName);
+}
+
+function renderFiles(files) {
+  currentFiles = Array.isArray(files) ? files : [];
+  updateStats(currentFiles);
+  if (currentFiles.length === 0) {
+    filesBody.innerHTML = '';
+    tableWrap.hidden = true;
+    emptyState.hidden = false;
     return;
   }
-  filesList.innerHTML = files.map(file => {
-    const onlineChecked = Boolean(file.quota_checked);
-    const statusText = onlineChecked ? (file.valid ? '有效' : '不可用') : (file.expired ? '已过期' : '未过期');
-    const statusClass = (onlineChecked ? file.valid : !file.expired) ? 'valid' : 'expired';
-    const expiresText = file.expires_at ? '到期 ' + file.expires_at : '';
-    const reason = file.valid_reason || file.expired_reason;
-    const meta = [file.email, file.account, file.status, reason, expiresText, file.status_message, file.last_refresh ? '刷新 ' + file.last_refresh : '']
-      .filter(Boolean)
-      .join(' · ');
-    return '<div class="file-row">' +
-      '<div class="file-main">' +
-      '<div class="file-name" title="' + escapeHTML(file.name) + '">' + escapeHTML(file.name) + '</div>' +
-      '<div class="file-meta"><span class="status ' + statusClass + '">' + statusText + '</span>' + escapeHTML(meta) + '</div>' +
-      '</div>' +
-      '<button class="secondary select-file" type="button" data-name="' + escapeHTML(file.name) + '">选择替换</button>' +
-      '</div>';
+  tableWrap.hidden = false;
+  emptyState.hidden = true;
+  filesBody.innerHTML = currentFiles.map(file => {
+    const status = formatStatus(file);
+    const reason = file.valid_reason || file.expired_reason || file.status_message || '';
+    const account = [file.email, file.account].filter(Boolean).join(' / ') || '-';
+    const expiresAt = formatDateTime(file.expires_at);
+    const lastRefresh = formatDateTime(file.last_refresh);
+    const selected = file.name === selectedName ? ' selected' : '';
+    return '<tr class="row' + selected + '" data-name="' + escapeHTML(file.name) + '">' +
+      '<td><div class="name" title="' + escapeHTML(file.name) + '">' + escapeHTML(file.name) + '</div><div class="meta" title="' + escapeHTML(reason) + '">' + escapeHTML(reason) + '</div></td>' +
+      '<td><span class="badge ' + status[1] + '">' + status[0] + '</span></td>' +
+      '<td><div class="cell-text account-cell" title="' + escapeHTML(account) + '">' + escapeHTML(account) + '</div></td>' +
+      '<td><div class="cell-text date-cell" title="' + escapeHTML(file.expires_at || '') + '">' + escapeHTML(expiresAt) + '</div></td>' +
+      '<td><div class="cell-text date-cell" title="' + escapeHTML(file.last_refresh || '') + '">' + escapeHTML(lastRefresh) + '</div></td>' +
+      '<td><button class="secondary select-file" type="button" data-name="' + escapeHTML(file.name) + '" title="替换 ' + escapeHTML(file.name) + '">选择替换</button></td>' +
+      '</tr>';
   }).join('');
 }
 
-async function refreshCodexFiles() {
-  refreshFilesButton.disabled = true;
-  show('读取已有 Codex 认证文件...');
+async function parseResponse(response) {
+  const text = await response.text();
   try {
-    const response = await fetch('/v0/management/plugins/codex-auth-importer/auth-files', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: buildHeaders(),
-      body: '{}'
-    });
-    const text = await response.text();
-    let payload;
-    try { payload = JSON.parse(text); } catch (_) { payload = {error: text || response.statusText}; }
-    if (response.status === 401 || response.status === 403) {
-      show('管理密钥无效或缺失，请填写 CLIProxyAPI 管理密钥后重试。', 'err');
-      return;
-    }
-    if (!response.ok || payload.error) {
-      show(payload.error || ('HTTP ' + response.status), 'err');
-      return;
-    }
-    renderCodexFiles(payload.files || []);
-    show('已有文件已刷新', 'ok');
-  } catch (error) {
-    show(error && error.message ? error.message : String(error), 'err');
-  } finally {
-    refreshFilesButton.disabled = false;
+    return JSON.parse(text);
+  } catch (_) {
+    return {error: text || response.statusText};
   }
 }
 
-refreshFilesButton.addEventListener('click', refreshCodexFiles);
-filesList.addEventListener('click', event => {
-  const target = event.target.closest('.select-file');
-  if (!target) return;
-  nameInput.value = target.dataset.name || '';
-  show('已选择替换：' + nameInput.value, 'ok');
-});
-
-button.addEventListener('click', async () => {
-  const file = fileInput.files && fileInput.files[0];
-  if (!file) {
-    show('请先选择 auth.json 文件', 'err');
-    return;
-  }
-  button.disabled = true;
-  show('导入中...');
+async function refreshCodexFiles(silent) {
+  if (!ensureManagementKey()) return;
+  setBusy(true, '正在刷新订阅状态');
+  refreshButton.disabled = true;
+  lastUpdated.textContent = '刷新中';
+  if (!silent) show('正在读取订阅状态...');
   try {
-    const content = await file.text();
-    const response = await fetch('/v0/management/plugins/codex-auth-importer/import', {
+    const response = await fetch(apiURL('auth-files'), {
       method: 'POST',
       credentials: 'same-origin',
-      headers: buildHeaders(),
+      headers: requestHeaders(),
+      body: '{}'
+    });
+    const payload = await parseResponse(response);
+    if (!response.ok || payload.error) {
+      show(payload.error || ('HTTP ' + response.status), 'err');
+      lastUpdated.textContent = '刷新失败';
+      return;
+    }
+    renderFiles(payload.files || []);
+    lastUpdated.textContent = new Date().toLocaleString();
+    if (!silent) show('订阅状态已刷新', 'ok');
+  } catch (error) {
+    if (!silent) show(error && error.message ? error.message : String(error), 'err');
+    lastUpdated.textContent = '刷新失败';
+  } finally {
+    refreshButton.disabled = false;
+    setBusy(false);
+  }
+}
+
+async function importAuth(target) {
+  if (!ensureManagementKey()) return;
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) {
+    show('请先选择本地 auth.json 文件', 'err');
+    return;
+  }
+  replaceButton.disabled = true;
+  importNewButton.disabled = true;
+  setBusy(true, target ? '正在替换订阅' : '正在导入新订阅');
+  const requestedName = currentSubscriptionName();
+  if (!requestedName) {
+    show('请填写订阅名称', 'err');
+    setBusy(false);
+    updateButtons();
+    return;
+  }
+  show(target ? '正在替换 ' + target + '...' : '正在导入新的订阅...');
+  try {
+    const content = await file.text();
+    const response = await fetch(apiURL('import'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: requestHeaders(),
       body: JSON.stringify({
         filename: file.name,
-        name: nameInput.value.trim(),
+        name: requestedName,
         content
       })
     });
-    const text = await response.text();
-    let payload;
-    try { payload = JSON.parse(text); } catch (_) { payload = {error: text || response.statusText}; }
-    if (response.status === 401 || response.status === 403) {
-      show('管理密钥无效或缺失，请填写 CLIProxyAPI 管理密钥后重试。', 'err');
-      return;
-    }
+    const payload = await parseResponse(response);
     if (!response.ok || payload.error) {
       show(payload.error || ('HTTP ' + response.status), 'err');
       return;
     }
+    await refreshCodexFiles(true);
+    if (target) setTarget(payload.saved_name || requestedName);
     show(JSON.stringify(payload, null, 2), 'ok');
   } catch (error) {
     show(error && error.message ? error.message : String(error), 'err');
   } finally {
-    button.disabled = false;
+    setBusy(false);
+    updateButtons();
   }
+}
+
+refreshButton.addEventListener('click', () => refreshCodexFiles(false));
+chooseFileButton.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files && fileInput.files[0];
+  fileName.textContent = file ? file.name : '未选择文件';
+  if (file && selectedName) customNameInput.value = selectedName;
+  updateButtons();
 });
+customNameInput.addEventListener('input', updateButtons);
+filesBody.addEventListener('click', event => {
+  const target = event.target.closest('.select-file');
+  if (!target) return;
+  setTarget(target.dataset.name || '');
+  show('已选择替换：' + selectedName, 'ok');
+});
+clearTargetButton.addEventListener('click', () => {
+  setTarget('');
+  show('已取消替换目标', 'ok');
+});
+replaceButton.addEventListener('click', () => importAuth(selectedName));
+importNewButton.addEventListener('click', () => importAuth(''));
+
+refreshCodexFiles();
 </script>
 </body>
-</html>`)
+</html>`
+	page = strings.ReplaceAll(page, "__MANAGEMENT_KEY__", jsStringLiteral(configuredManagementKey()))
+	return []byte(page)
+}
+
+func jsStringLiteral(value string) string {
+	literal := strconv.Quote(value)
+	return strings.ReplaceAll(literal, "</", "<\\/")
 }

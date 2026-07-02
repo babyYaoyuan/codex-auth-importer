@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Remove management-key input from the self-service import page.
+- Route page refresh/import actions through the existing plugin Management API endpoints with a build-time or environment-provided management key.
+- Redesign the import page around subscription status, target selection, and local auth file import.
+
 ## 0.2.4
 
 - Validate existing Codex auth files by calling the Codex quota endpoint through the host HTTP callback.

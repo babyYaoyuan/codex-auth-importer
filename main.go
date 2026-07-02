@@ -60,6 +60,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 	"unsafe"
@@ -78,7 +79,17 @@ const (
 	defaultPluginLogo       = "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/main/docs/logo.png"
 )
 
-var version = "0.2.4"
+var (
+	version       = "0.2.4"
+	managementKey = ""
+)
+
+func configuredManagementKey() string {
+	if strings.TrimSpace(managementKey) != "" {
+		return strings.TrimSpace(managementKey)
+	}
+	return strings.TrimSpace(os.Getenv("CODEX_AUTH_IMPORTER_MANAGEMENT_KEY"))
+}
 
 type envelope struct {
 	OK     bool            `json:"ok"`
