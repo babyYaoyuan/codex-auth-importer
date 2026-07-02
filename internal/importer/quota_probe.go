@@ -1,4 +1,4 @@
-package main
+package importer
 
 import (
 	"encoding/json"
@@ -21,10 +21,6 @@ type codexQuotaProbeResult struct {
 }
 
 type codexQuotaHTTPDoer func(pluginapi.HTTPRequest) (pluginapi.HTTPResponse, error)
-
-func probeCodexQuota(raw json.RawMessage) codexQuotaProbeResult {
-	return probeCodexQuotaWithDoer(raw, callHostHTTPDo)
-}
 
 func probeCodexQuotaWithDoer(raw json.RawMessage, do codexQuotaHTTPDoer) codexQuotaProbeResult {
 	fields, errExtract := extractCodexQuotaFields(raw)

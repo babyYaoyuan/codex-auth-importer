@@ -1,12 +1,4 @@
-package main
-
-import (
-	"strconv"
-	"strings"
-)
-
-func renderImportPage() []byte {
-	page := `<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -401,12 +393,4 @@ importNewButton.addEventListener('click', () => importAuth(''));
 refreshCodexFiles();
 </script>
 </body>
-</html>`
-	page = strings.ReplaceAll(page, "__MANAGEMENT_KEY__", jsStringLiteral(configuredManagementKey()))
-	return []byte(page)
-}
-
-func jsStringLiteral(value string) string {
-	literal := strconv.Quote(value)
-	return strings.ReplaceAll(literal, "</", "<\\/")
-}
+</html>
