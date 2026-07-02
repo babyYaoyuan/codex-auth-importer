@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -16,7 +15,11 @@ import (
 
 const providerCodex = "codex"
 
-var safeFilePartPattern = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+var (
+	safeFilePartPattern       = regexp.MustCompile(`[^\p{L}\p{N}@._+\-#()（） ]+`)
+	repeatedWhitespacePattern = regexp.MustCompile(`\s+`)
+	repeatedDashPattern       = regexp.MustCompile(`-+`)
+)
 
 type convertedAuth struct {
 	FileName     string
@@ -170,27 +173,31 @@ func targetFileName(opts importOptions, email, accountID, refreshToken string) s
 }
 
 func safeAuthFileName(name string) string {
-	name = strings.TrimSpace(filepath.Base(name))
-	if name == "" || name == "." || name == string(filepath.Separator) {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." {
 		return ""
 	}
-	if strings.Contains(name, "..") {
-		return ""
-	}
+	name = strings.NewReplacer("/", "-", "\\", "-").Replace(name)
 	if !strings.HasSuffix(strings.ToLower(name), ".json") {
 		name += ".json"
 	}
-	return safeFilePart(name)
+	stem := strings.TrimSuffix(name, name[len(name)-len(".json"):])
+	stem = safeFilePart(stem)
+	if stem == "" {
+		return ""
+	}
+	return stem + ".json"
 }
 
 func safeFilePart(value string) string {
 	value = strings.TrimSpace(value)
-	value = strings.ReplaceAll(value, "@", "_at_")
+	value = repeatedWhitespacePattern.ReplaceAllString(value, " ")
 	value = safeFilePartPattern.ReplaceAllString(value, "-")
-	value = strings.Trim(value, ".-_")
-	if len(value) > 80 {
-		value = value[:80]
-		value = strings.Trim(value, ".-_")
+	value = repeatedDashPattern.ReplaceAllString(value, "-")
+	value = strings.Trim(value, " .-_")
+	if len([]rune(value)) > 80 {
+		value = string([]rune(value)[:80])
+		value = strings.Trim(value, " .-_")
 	}
 	return value
 }

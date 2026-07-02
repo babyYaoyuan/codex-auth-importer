@@ -6,6 +6,11 @@ GOARCH ?= $(shell $(GO) env GOARCH)
 HOST_GOOS ?= $(shell $(GO) env GOHOSTOS)
 HOST_GOARCH ?= $(shell $(GO) env GOHOSTARCH)
 CC ?= $(shell $(GO) env CC)
+MANAGEMENT_KEY ?=
+LD_FLAGS := -s -w -X main.version=$(VERSION)
+ifneq ($(strip $(MANAGEMENT_KEY)),)
+LD_FLAGS := $(LD_FLAGS) -X main.managementKey=$(MANAGEMENT_KEY)
+endif
 
 ifeq ($(GOOS),darwin)
 	LIB_EXT := dylib
@@ -36,7 +41,7 @@ vet:
 
 build:
 	mkdir -p $(dir $(PLUGIN_BIN))
-	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) CC="$(CC)" $(GO) build -trimpath -buildmode=c-shared -ldflags "-s -w -X main.version=$(VERSION)" -o $(PLUGIN_BIN) .
+	CGO_ENABLED=1 GOOS=$(GOOS) GOARCH=$(GOARCH) CC="$(CC)" $(GO) build -trimpath -buildmode=c-shared -ldflags "$(LD_FLAGS)" -o $(PLUGIN_BIN) .
 	rm -f $(basename $(PLUGIN_BIN)).h
 
 package: build

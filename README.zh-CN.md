@@ -17,7 +17,7 @@
 - CLIProxyAPI v7.2.30 或更新版本。
 - 本地开发需要 Go 1.26+。
 - 构建动态库时需要启用 CGO。
-- 使用导入页面时需要 CLIProxyAPI 管理密钥。
+- 构建时写入 CLIProxyAPI 管理密钥，或者在 CLIProxyAPI 进程环境变量中设置 `CODEX_AUTH_IMPORTER_MANAGEMENT_KEY`。
 
 ## CLIProxyAPI 配置
 
@@ -38,6 +38,8 @@ plugins:
 ```text
 /v0/resource/plugins/codex-auth-importer/import
 ```
+
+自助页面会调用插件已有 Management API 完成导入和刷新。页面不会渲染管理密钥输入框，但当动态库内置了密钥或进程环境变量提供了密钥时，会自动在请求中携带 `X-Management-Key`。
 
 插件注册的 Management API：
 
@@ -67,6 +69,14 @@ make build GOOS=linux GOARCH=amd64
 make build GOOS=darwin GOARCH=arm64
 make build GOOS=windows GOARCH=amd64
 ```
+
+构建时内置管理密钥：
+
+```bash
+make build MANAGEMENT_KEY='YOUR_MANAGEMENT_KEY'
+```
+
+也可以在 CLIProxyAPI 进程环境变量中设置 `CODEX_AUTH_IMPORTER_MANAGEMENT_KEY`，然后重启 CLIProxyAPI。
 
 ## 在 Apple Silicon 上编译 Linux amd64 插件
 
@@ -106,6 +116,12 @@ ELF 64-bit LSB shared object, x86-64
 
 ```bash
 make package GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-gnu" PLUGIN_BIN=dist/codex-auth-importer.so
+```
+
+如果要把管理密钥内置到 Linux 包：
+
+```bash
+make package GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-gnu" PLUGIN_BIN=dist/codex-auth-importer.so MANAGEMENT_KEY='YOUR_MANAGEMENT_KEY'
 ```
 
 ## 本地安装
@@ -164,7 +180,8 @@ docker compose restart
 
 - 上传的 Codex `auth.json` 只在导入请求中解析并转换。
 - 插件不会额外保存原始 Codex CLI 文件格式。
-- 管理密钥只随 Management API 请求发送，页面只写入浏览器 session storage。
+- 自助页面不渲染管理密钥输入框，也不会把管理密钥写入浏览器存储。
+- 内置密钥模式会把密钥写入页面脚本中，用于让浏览器请求通过 CLIProxyAPI 管理鉴权。
 - 插件不会记录 token。
 
 ## 发布

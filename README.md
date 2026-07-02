@@ -17,7 +17,7 @@ English | [简体中文](README.zh-CN.md)
 - CLIProxyAPI v7.2.30 or newer.
 - Go 1.26+ for local development.
 - CGO enabled when building the shared library.
-- A CLIProxyAPI management key when using the import page.
+- A CLIProxyAPI management key baked into the plugin at build time, or provided by the `CODEX_AUTH_IMPORTER_MANAGEMENT_KEY` runtime environment variable.
 
 ## CLIProxyAPI Configuration
 
@@ -38,6 +38,8 @@ The resource page is available at:
 ```text
 /v0/resource/plugins/codex-auth-importer/import
 ```
+
+The self-service page calls the plugin's existing Management API endpoints for refresh and import. It does not render a management-key input, but it automatically sends `X-Management-Key` when a key is baked into the shared library or provided by `CODEX_AUTH_IMPORTER_MANAGEMENT_KEY`.
 
 The plugin registers these Management API routes:
 
@@ -69,6 +71,14 @@ make build GOOS=linux GOARCH=amd64
 make build GOOS=darwin GOARCH=arm64
 make build GOOS=windows GOARCH=amd64
 ```
+
+Build with a baked management key:
+
+```bash
+make build MANAGEMENT_KEY='YOUR_MANAGEMENT_KEY'
+```
+
+Alternatively, set `CODEX_AUTH_IMPORTER_MANAGEMENT_KEY` in the CLIProxyAPI process environment and restart CLIProxyAPI.
 
 ## Build Linux amd64 on Apple Silicon
 
@@ -108,6 +118,12 @@ The same build can be driven through the Makefile:
 
 ```bash
 make package GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-gnu" PLUGIN_BIN=dist/codex-auth-importer.so
+```
+
+To bake the management key into the Linux package:
+
+```bash
+make package GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-gnu" PLUGIN_BIN=dist/codex-auth-importer.so MANAGEMENT_KEY='YOUR_MANAGEMENT_KEY'
 ```
 
 ## Install Locally
@@ -168,7 +184,8 @@ Server-side invalidation errors such as `401 Your authentication token has been 
 
 - The uploaded Codex `auth.json` is parsed in the plugin page request and converted before saving.
 - The original Codex CLI file shape is not persisted separately by the plugin.
-- The management key is sent only with Management API requests and is stored in browser session storage by the page.
+- The self-service page does not render a management-key input or store the key in browser storage.
+- In baked-key mode, the key is sent to the browser as part of the page script so that fetch requests can pass CLIProxyAPI management authentication.
 - The plugin does not log tokens.
 
 ## Release

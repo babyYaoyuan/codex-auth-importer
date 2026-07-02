@@ -24,7 +24,7 @@ func TestConvertCodexCLIAuth(t *testing.T) {
 	if converted.SourceFormat != "codex-cli" {
 		t.Fatalf("SourceFormat = %q, want codex-cli", converted.SourceFormat)
 	}
-	if !strings.HasPrefix(converted.FileName, "codex-user_at_example.com-") {
+	if !strings.HasPrefix(converted.FileName, "codex-user@example.com-") {
 		t.Fatalf("FileName = %q, want generated email-based name", converted.FileName)
 	}
 
@@ -87,10 +87,26 @@ func TestConvertRejectsMissingRefreshToken(t *testing.T) {
 
 func TestSafeAuthFileNameRejectsTraversal(t *testing.T) {
 	if got := safeAuthFileName("../auth.json"); got != "auth.json" {
-		t.Fatalf("safeAuthFileName traversal basename = %q, want auth.json", got)
+		t.Fatalf("safeAuthFileName traversal sanitized = %q, want auth.json", got)
 	}
-	if got := safeAuthFileName("bad/name.json"); got != "name.json" {
-		t.Fatalf("safeAuthFileName nested basename = %q, want name.json", got)
+	if got := safeAuthFileName("bad/name.json"); got != "bad-name.json" {
+		t.Fatalf("safeAuthFileName nested path sanitized = %q, want bad-name.json", got)
+	}
+}
+
+func TestSafeAuthFileNameSupportsCustomSubscriptionNames(t *testing.T) {
+	tests := map[string]string{
+		"张三 @ Plus（主账号）":         "张三 @ Plus（主账号）.json",
+		"user+codex@example.com": "user+codex@example.com.json",
+		"账号 #1 (backup)":         "账号 #1 (backup).json",
+		"team.codex":             "team.codex.json",
+		"dev_01.JSON":            "dev_01.json",
+		"bad:name*with?chars":    "bad-name-with-chars.json",
+	}
+	for input, want := range tests {
+		if got := safeAuthFileName(input); got != want {
+			t.Fatalf("safeAuthFileName(%q) = %q, want %q", input, got, want)
+		}
 	}
 }
 
